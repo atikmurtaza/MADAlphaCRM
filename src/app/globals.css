@@ -238,6 +238,7 @@ button {
 table { width: 100%; border-collapse: collapse; text-align: left; font-variant-numeric: tabular-nums; }
 
 th, td { padding: 1rem; border-bottom: 1px solid var(--border-hairline); }
+td { font-size: 0.85rem; }
 
 thead th {
   background: rgba(244, 246, 251, 0.85);
