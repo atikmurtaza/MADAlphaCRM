@@ -6,9 +6,15 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "migrate:pg": "prisma db push",
+    "migrate:data": "tsx migrate-data.ts",
+    "setup:db": "prisma generate --schema=prisma/schema.sqlite.prisma && prisma generate && prisma db push && tsx migrate-data.ts"
   },
   "dependencies": {
+    "@prisma/client": "^6.4.1",
+    "google-auth-library": "^10.9.0",
+    "googleapis": "^173.0.0",
     "next": "16.2.10",
     "react": "19.2.4",
     "react-dom": "19.2.4"
@@ -19,6 +25,11 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
+    "prisma": "^6.4.1",
+    "tsx": "^4.23.1",
     "typescript": "^5"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   }
 }

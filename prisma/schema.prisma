@@ -1,0 +1,314 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  position  String   // Admin, Operations Manager, Execution Manager, Team Leader, Employee, Designer
+  baseSalary Float   @default(0)
+  isActive  Boolean  @default(true)
+  employeeId String? @unique
+  
+  // Existing Relations
+  teamId       String?
+  team         Team?    @relation("TeamMembers", fields: [teamId], references: [id])
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  salaryTierId String?
+  salaryTier   SalaryTier? @relation(fields: [salaryTierId], references: [id])
+  leadsTeams       Team[]   @relation("TeamLeader")
+  supervises       TeamSupervisor[]
+  assists          TeamAssistant[]
+  overrides        OverrideAssignment[]
+  formerTeams      Team[]   @relation("FormerTeamMembers")
+
+  // New Relations
+  salesMade           Sale[]               @relation("AgentSales")
+  projectAssignments  ProjectAssignment[]
+  designerAssignments DesignerAssignment[]
+  
+  // Phase 3 Relations
+  compensationProfiles CompensationProfile[]
+  commissionLedger     CommissionLedgerEntry[]
+  payrollSnapshots     MonthlyPayrollSnapshot[]
+  usedIds              UsedEmployeeId[]
+}
+
+model UsedEmployeeId {
+  id         String   @id @default(cuid())
+  employeeId String   @unique
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  usedAt     DateTime @default(now())
+}
+
+model Team {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  leaderId  String?
+  leader    User?    @relation("TeamLeader", fields: [leaderId], references: [id])
+  members          User[]   @relation("TeamMembers")
+  
+  supervisors      TeamSupervisor[]
+  assistantLeaders TeamAssistant[]
+  overrides        OverrideAssignment[]
+  sales            Sale[]
+  
+  leaderRate       Float    @default(0)
+  leaderRateType   String   @default("CLEARED")
+  
+  commissionRate Float @default(0)
+  
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  formerMembers User[]   @relation("FormerTeamMembers")
+}
+
+model Department {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  teams     Team[]
+  users     User[]
+}
+
+model SalaryTier {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String
+  users       User[]
+}
+
+model TeamSupervisor {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  rate      Float    @default(0)
+  type      String   @default("CLEARED")
+  @@unique([userId, teamId])
+}
+
+model TeamAssistant {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  rate      Float    @default(0)
+  type      String   @default("TARGET")
+  @@unique([userId, teamId])
+}
+
+model OverrideAssignment {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  teamId    String
+  team      Team     @relation(fields: [teamId], references: [id])
+  rate      Float
+}
+
+// ----------------------------------------------------------------------------
+// PHASE 2 CRM CORE ARCHITECTURE
+// ----------------------------------------------------------------------------
+
+model Client {
+  id        String   @id @default(cuid())
+  name      String
+  email     String?
+  phone     String?
+  sales     Sale[]
+  createdAt DateTime @default(now())
+}
+
+model Sale {
+  id           String   @id @default(cuid())
+  clientId     String
+  client       Client   @relation(fields: [clientId], references: [id])
+  
+  agentId      String
+  agent        User     @relation("AgentSales", fields: [agentId], references: [id])
+  teamId       String
+  team         Team     @relation(fields: [teamId], references: [id])
+  
+  targetAmount Float    // Total sale value in USD
+  status       String   // IN_PROGRESS, COMPLETED, DECLINED, REFUNDED
+  
+  // Phase 8 additions
+  customSaleId       String?
+  product            String?
+  productDescription String?
+  clientSocialHandle String?
+  
+  // Phase 9 additions
+  approvalStatus     String   @default("APPROVED") // PENDING, APPROVED, REJECTED
+  latestUpdate       String?
+  clearedAt          DateTime?
+  
+  createdAt    DateTime @default(now())
+  
+  // Relations
+  project      Project?
+  payments     PaymentTransaction[]
+  refunds      RefundTransaction[]
+}
+
+model Project {
+  id           String   @id @default(cuid())
+  saleId       String   @unique
+  sale         Sale     @relation(fields: [saleId], references: [id])
+  status       String   @default("IN_PROGRESS")
+  
+  cost         Float?
+  designer     String?
+  details      String?
+  
+  createdAt    DateTime @default(now())
+  
+  assignments  ProjectAssignment[]
+  deliverables Deliverable[]
+}
+
+model ProjectAssignment {
+  id         String    @id @default(cuid())
+  projectId  String
+  project    Project   @relation(fields: [projectId], references: [id])
+  
+  employeeId String
+  employee   User      @relation(fields: [employeeId], references: [id])
+  
+  role       String    // PRIMARY_EXECUTION_MANAGER, ASSISTANT_EXECUTION_MANAGER
+  
+  assignedAt DateTime  @default(now())
+  endedAt    DateTime?
+}
+
+model Deliverable {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id])
+  name        String
+  type        String?
+  status      String   @default("PENDING")
+  
+  createdAt   DateTime @default(now())
+  assignments DesignerAssignment[]
+}
+
+model DesignerAssignment {
+  id            String      @id @default(cuid())
+  deliverableId String
+  deliverable   Deliverable @relation(fields: [deliverableId], references: [id])
+  
+  employeeId    String
+  employee      User        @relation(fields: [employeeId], references: [id])
+  
+  assignedAt    DateTime    @default(now())
+  endedAt       DateTime?
+}
+
+model PaymentTransaction {
+  id         String   @id @default(cuid())
+  saleId     String
+  sale       Sale     @relation(fields: [saleId], references: [id])
+  amount     Float
+  method     String?
+  
+  recordedAt DateTime @default(now())
+}
+
+model RefundTransaction {
+  id           String   @id @default(cuid())
+  saleId       String
+  sale         Sale     @relation(fields: [saleId], references: [id])
+  amount       Float
+  isFullRefund Boolean  @default(false)
+  
+  recordedAt   DateTime @default(now())
+}
+
+// ----------------------------------------------------------------------------
+// PHASE 3 COMPENSATION ENGINE
+// ----------------------------------------------------------------------------
+
+model CompensationProfile {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  
+  validFrom       DateTime  @default(now())
+  validTo         DateTime?
+  
+  baseSalaryCap   Float     @default(25000)
+  ratePerUnit     Float     @default(50)   // PKR per USD target (25000 / 500 = 50)
+  commissionRate  Float     @default(40)   // PKR 40 per cleared USD after target cap
+  
+  // Dynamic Bonus Step Rules
+  bonusThreshold1 Float     @default(1000) // The first target threshold
+  bonusAmount1    Float     @default(5000) // Reward for reaching first threshold
+  bonusThresholdStep Float  @default(1000) // Subsequent thresholds (e.g. every 1000)
+  bonusAmountStep Float     @default(10000)// Reward for every subsequent threshold
+  
+  // Execution Manager Rules
+  emCommissionThreshold Float @default(10000) // The tier threshold for EM (e.g. 10000)
+  emCommissionRate1     Float @default(10)    // PKR per USD before threshold
+  emCommissionRate2     Float @default(5)     // PKR per USD after threshold
+  
+  // Leadership Rules
+  leadershipCommissionRate Float @default(10) // PKR per USD of team cleared cash
+  
+  createdAt       DateTime  @default(now())
+}
+
+model CommissionLedgerEntry {
+  id                String   @id @default(cuid())
+  earnerId          String
+  earner            User     @relation(fields: [earnerId], references: [id])
+  
+  earningType       String   // AGENT_COMMISSION, TEAM_LEADER, SUPERVISION, EM_COMMISSION
+  sourceTeamId      String?  // Optional: which team generated this
+  
+  sourceMonth       String   // e.g. "2026-07"
+  payoutMonth       String   // e.g. "2026-08"
+  
+  clearedBefore     Float    @default(0)
+  clearedAfter      Float
+  incrementalAmount Float    // PKR amount, can be negative
+  
+  createdAt         DateTime @default(now())
+}
+
+model MonthlyPayrollSnapshot {
+  id                      String   @id @default(cuid())
+  userId                  String
+  user                    User     @relation(fields: [userId], references: [id])
+  
+  month                   String   // e.g. "2026-07"
+  
+  target                  Float
+  clearedAtClose          Float
+  remaining               Float
+  
+  calculatedSalary        Float
+  calculatedBonus         Float
+  allowance               Float    @default(0)
+  commissionEntriesTotal  Float    @default(0)
+  leadershipEarningsTotal Float    @default(0)
+  executionManagerCommission Float @default(0)
+  
+  grossTotal              Float
+  
+  isLocked                Boolean  @default(false)
+  lockedAt                DateTime?
+  
+  @@unique([userId, month])
+}
