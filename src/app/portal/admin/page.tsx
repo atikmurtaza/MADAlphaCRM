@@ -1,5 +1,7 @@
 import { PrismaClient } from '@prisma/client';
+import { requireAuth } from "@/lib/auth-utils";
 import AdminDashboardClient from './AdminDashboardClient';
+import { logout } from "@/app/auth/actions";
 
 const prisma = new PrismaClient();
 
@@ -45,7 +47,13 @@ export default async function AdminDashboardPage() {
             <div className="brand-title">MAD Alpha HQ</div>
           </div>
         </div>
-        <a href="/" className="btn secondary">Logout</a>
+        <div className="flex gap-4">
+          <a href="/admin/users" className="btn secondary">User Management</a>
+          <a href="/dashboard" className="btn secondary">Back to Dashboard</a>
+          <form action={logout}>
+            <button type="submit" className="btn secondary">Logout</button>
+          </form>
+        </div>
       </header>
 
       <AdminDashboardClient 

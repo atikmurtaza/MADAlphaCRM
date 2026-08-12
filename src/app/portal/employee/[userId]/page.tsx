@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import DashboardClient from './DashboardClient';
+import { logout } from "@/app/auth/actions";
 
 const prisma = new PrismaClient();
 
@@ -40,7 +41,12 @@ export default async function EmployeeDashboardPage({ params }: { params: Promis
             <div className="brand-sub">Team: {user.team?.name || 'Unassigned'}</div>
           </div>
         </div>
-        <a href="/" className="btn secondary">Logout</a>
+        <div className="flex gap-4">
+          <a href="/dashboard" className="btn secondary">Back to Dashboard</a>
+          <form action={logout}>
+            <button type="submit" className="btn secondary">Logout</button>
+          </form>
+        </div>
       </header>
 
       <DashboardClient 

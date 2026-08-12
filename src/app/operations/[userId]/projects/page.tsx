@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import EMDashboardClient from './EMDashboardClient';
 import { notFound } from 'next/navigation';
+import { logout } from "@/app/auth/actions";
 
 const prisma = new PrismaClient();
 
@@ -58,7 +59,12 @@ export default async function ExecutionManagerDashboardPage({ params }: { params
             <div className="brand-sub">Signed in as <strong>{user.name}</strong></div>
           </div>
         </div>
-        <a href="/operations/login" className="btn secondary">Logout</a>
+        <div className="flex gap-4">
+          <a href="/dashboard" className="btn secondary">Back to Dashboard</a>
+          <form action={logout}>
+            <button type="submit" className="btn secondary">Logout</button>
+          </form>
+        </div>
       </header>
 
       <EMDashboardClient 

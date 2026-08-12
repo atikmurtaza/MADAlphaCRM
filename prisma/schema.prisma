@@ -12,7 +12,9 @@ model User {
   id        String   @id @default(cuid())
   name      String
   email     String   @unique
+  auth_user_id String? @unique @db.Uuid // Supabase Auth reference
   position  String   // Admin, Operations Manager, Execution Manager, Team Leader, Employee, Designer
+  roles     String[] @default([])
   baseSalary Float   @default(0)
   isActive  Boolean  @default(true)
   employeeId String? @unique
@@ -40,6 +42,10 @@ model User {
   commissionLedger     CommissionLedgerEntry[]
   payrollSnapshots     MonthlyPayrollSnapshot[]
   usedIds              UsedEmployeeId[]
+  
+  // Phase 4 Relations
+  accessibleEmployees  User[] @relation("EmployeeAccess")
+  accessedBy           User[] @relation("EmployeeAccess")
 }
 
 model UsedEmployeeId {

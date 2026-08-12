@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import LeaderDashboardClient from './LeaderDashboardClient';
 import { notFound } from 'next/navigation';
+import { logout } from "@/app/auth/actions";
 
 const prisma = new PrismaClient();
 
@@ -50,7 +51,12 @@ export default async function LeaderDashboardPage({ params }: { params: Promise<
             </div>
           </div>
         </div>
-        <a href="/" className="btn secondary">Logout</a>
+        <div className="flex gap-4">
+          <a href="/dashboard" className="btn secondary">Back to Dashboard</a>
+          <form action={logout}>
+            <button type="submit" className="btn secondary">Logout</button>
+          </form>
+        </div>
       </header>
 
       <LeaderDashboardClient 

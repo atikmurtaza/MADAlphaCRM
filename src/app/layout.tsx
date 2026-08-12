@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Script from "next/script";
+
 import "./globals.css";
 import { ThemeToggle } from "../components/ThemeToggle";
 
@@ -15,8 +15,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script src="/theme-init.js" suppressHydrationWarning />
+      </head>
       <body>
-        <Script src="/theme-init.js" strategy="beforeInteractive" />
         <main>
           {children}
         </main>
