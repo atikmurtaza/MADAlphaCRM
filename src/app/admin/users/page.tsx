@@ -59,7 +59,7 @@ export default async function AdminUsersPage() {
       email: authUser.email || "",
       name: authUser.user_metadata?.full_name || "Unknown",
       emailVerified: !!authUser.email_confirmed_at,
-      createdAt: authUser.created_at,
+      createdAt: authUser.created_at.toISOString(),
       status,
       linkedProfileId: linkedProfile?.id || null,
       position: linkedProfile?.position || "",
