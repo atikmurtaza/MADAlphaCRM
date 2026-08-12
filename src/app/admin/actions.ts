@@ -89,3 +89,70 @@ export async function updateUserRoles(
     return { error: error.message || "Failed to update roles." };
   }
 }
+
+export async function createProfileAndAssign(
+  authUserId: string,
+  name: string,
+  email: string,
+  employeeId: string,
+  position: string,
+  baseSalary: number,
+  teamId: string | null,
+  salaryTierId: string | null
+) {
+  try {
+    const adminUser = await assertActiveUser();
+    if (adminUser.position !== "Admin" && adminUser.position !== "SuperAdmin") {
+      return { error: "Unauthorized: You do not have permission to create profiles." };
+    }
+
+    if (!employeeId || employeeId.trim() === "") {
+      return { error: "Employee ID is required." };
+    }
+
+    // Wrap in a transaction to ensure atomic creation and ID logging
+    await prisma.$transaction(async (tx) => {
+      // Check if employee ID exists in User table
+      const existingUser = await tx.user.findUnique({ where: { employeeId } });
+      if (existingUser) {
+        throw new Error("This Employee ID is currently in use by an active or inactive profile.");
+      }
+
+      // Check if employee ID exists in UsedEmployeeId table
+      const previouslyUsed = await tx.usedEmployeeId.findUnique({ where: { employeeId } });
+      if (previouslyUsed) {
+        throw new Error("This Employee ID was used previously and cannot be reused.");
+      }
+
+      // Create the user and link to auth
+      const newUser = await tx.user.create({
+        data: {
+          name,
+          email,
+          employeeId,
+          position,
+          baseSalary,
+          teamId: teamId || null,
+          salaryTierId: salaryTierId || null,
+          auth_user_id: authUserId,
+          isActive: true
+        }
+      });
+
+      // Record the used employee ID
+      await tx.usedEmployeeId.create({
+        data: {
+          employeeId,
+          userId: newUser.id
+        }
+      });
+    });
+
+    revalidatePath("/admin/users");
+    return { success: true };
+  } catch (error: any) {
+    console.error("Create profile error:", error);
+    return { error: error.message || "Failed to create profile." };
+  }
+}
+

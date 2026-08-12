@@ -78,6 +78,23 @@ export default async function AdminUsersPage() {
   const departments = await prisma.department.findMany({ select: { id: true, name: true }});
   const employees = crmProfiles.map(p => ({ id: p.id, name: p.name, position: p.position }));
 
+  // Calculate next sequential Employee ID
+  const usedIds = await prisma.usedEmployeeId.findMany({ select: { employeeId: true }});
+  const allIds = [...crmProfiles.map(p => p.employeeId), ...usedIds.map(u => u.employeeId)].filter(Boolean) as string[];
+  
+  let maxEmpNum = 0;
+  for (const id of allIds) {
+    if (id.startsWith("EMP-")) {
+      const num = parseInt(id.replace("EMP-", ""), 10);
+      if (!isNaN(num) && num > maxEmpNum) {
+        maxEmpNum = num;
+      }
+    }
+  }
+  const nextEmployeeId = `EMP-${String(maxEmpNum + 1).padStart(3, '0')}`;
+
+  const salaryTiers = await prisma.salaryTier.findMany({ select: { id: true, name: true }});
+
   return (
     <div className="container">
       <header className="topbar">
@@ -102,6 +119,8 @@ export default async function AdminUsersPage() {
         teams={teams}
         departments={departments}
         employees={employees}
+        salaryTiers={salaryTiers}
+        nextEmployeeId={nextEmployeeId}
       />
     </div>
   );

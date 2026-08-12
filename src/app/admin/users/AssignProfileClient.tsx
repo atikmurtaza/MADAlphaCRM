@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { assignProfile, updateUserRoles } from "../actions";
+import { useState, useMemo } from "react";
+import { assignProfile, updateUserRoles, createProfileAndAssign } from "../actions";
 
 type AuthUser = {
   id: string;
@@ -38,13 +38,17 @@ export default function AssignProfileClient({
   unassignedProfiles,
   teams,
   departments,
-  employees
+  employees,
+  salaryTiers,
+  nextEmployeeId
 }: {
   authUsers: AuthUser[];
   unassignedProfiles: CRMProfile[];
   teams: Team[];
   departments: Department[];
   employees: EmployeeInfo[];
+  salaryTiers: { id: string; name: string }[];
+  nextEmployeeId: string;
 }) {
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [selectedProfile, setSelectedProfile] = useState<string>("");
@@ -57,6 +61,23 @@ export default function AssignProfileClient({
   const [editAccessibleEmployees, setEditAccessibleEmployees] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [employeeSearch, setEmployeeSearch] = useState("");
+  
+  // New Profile Form State
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
+  const [newProfileData, setNewProfileData] = useState({
+    name: "",
+    email: "",
+    employeeId: nextEmployeeId,
+    position: "Employee",
+    baseSalary: 0,
+    teamId: "",
+    salaryTierId: "",
+  });
+
+  const filteredEmployees = useMemo(() => {
+    return employees.filter(e => e.name.toLowerCase().includes(employeeSearch.toLowerCase()) || e.position.toLowerCase().includes(employeeSearch.toLowerCase()));
+  }, [employees, employeeSearch]);
 
   const AVAILABLE_ROLES = ["Admin", "SuperAdmin", "Employee", "Team Leader", "Execution Manager", "Assistant Execution Manager", "Operations Manager", "Designer"];
 
@@ -123,6 +144,30 @@ export default function AssignProfileClient({
     setLoading(false);
   };
 
+  const handleCreateAndAssign = async (authUserId: string) => {
+    setLoading(true);
+    setError("");
+
+    const res = await createProfileAndAssign(
+      authUserId,
+      newProfileData.name,
+      newProfileData.email,
+      newProfileData.employeeId,
+      newProfileData.position,
+      newProfileData.baseSalary,
+      newProfileData.teamId || null,
+      newProfileData.salaryTierId || null
+    );
+
+    if (res.error) {
+      setError(res.error);
+    } else {
+      setSelectedUser(null);
+      setIsCreatingNew(false);
+    }
+    setLoading(false);
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       {error && (
@@ -179,7 +224,15 @@ export default function AssignProfileClient({
               <div style={{ width: '100%', maxWidth: isSelecting || isManagingRoles ? '100%' : 'auto', flex: 1, display: 'flex', justifyContent: 'flex-end', flexDirection: 'column', alignItems: 'flex-end' }}>
                 {isPending && !isSelecting && (
                   <button
-                    onClick={() => setSelectedUser(user.id)}
+                    onClick={() => {
+                      setSelectedUser(user.id);
+                      setNewProfileData(prev => ({
+                        ...prev,
+                        name: user.name,
+                        email: user.email,
+                        employeeId: nextEmployeeId
+                      }));
+                    }}
                     className="btn secondary"
                     style={{ whiteSpace: 'nowrap' }}
                   >
@@ -240,8 +293,16 @@ export default function AssignProfileClient({
                       {(editPosition === "Employee" || editRoles.includes("Employee")) && (
                         <div style={{ marginTop: '0.5rem', padding: '1rem', background: 'var(--bg-main)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)' }}>
                           <label className="text-secondary" style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem' }}>Employee Scope: Which employee portals can they view?</label>
-                          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', maxHeight: '150px', overflowY: 'auto', padding: '0.5rem', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-card)' }}>
-                            {employees.filter(e => e.id !== user.linkedProfileId).map(emp => (
+                          <input 
+                            type="text" 
+                            placeholder="Search employees..." 
+                            value={employeeSearch}
+                            onChange={(e) => setEmployeeSearch(e.target.value)}
+                            className="input"
+                            style={{ marginBottom: '0.75rem', padding: '0.4rem 0.75rem', fontSize: '0.8rem' }}
+                          />
+                          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', maxHeight: '200px', overflowY: 'auto', padding: '0.5rem', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', background: 'var(--bg-card)' }}>
+                            {filteredEmployees.filter(e => e.id !== user.linkedProfileId).map(emp => (
                               <button
                                 key={emp.id}
                                 onClick={() => handleToggleAccessibleEmployee(emp.id)}
@@ -258,6 +319,9 @@ export default function AssignProfileClient({
                                 {emp.name} ({emp.position})
                               </button>
                             ))}
+                            {filteredEmployees.length === 0 && (
+                              <div className="text-secondary text-sm p-2">No employees match your search.</div>
+                            )}
                           </div>
                         </div>
                       )}
@@ -314,36 +378,106 @@ export default function AssignProfileClient({
                 )}
 
                 {isSelecting && (
-                  <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', flexWrap: 'wrap', justifyContent: 'flex-end', width: '100%' }}>
-                    <div style={{ flex: '1 1 auto', minWidth: '200px', maxWidth: '300px' }}>
-                      <label className="text-secondary" style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem' }}>Select CRM Profile</label>
-                      <select
-                        value={selectedProfile}
-                        onChange={(e) => setSelectedProfile(e.target.value)}
-                        style={{ width: '100%', padding: '0.65rem 1rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', background: 'var(--bg-main)', color: 'var(--text-primary)', outline: 'none' }}
+                  <div style={{ width: '100%', background: 'var(--bg-hover)', padding: '1.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', marginTop: '1rem' }}>
+                    <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.75rem' }}>
+                      <button 
+                        onClick={() => setIsCreatingNew(false)}
+                        style={{ fontWeight: 600, color: !isCreatingNew ? 'var(--accent-primary)' : 'var(--text-secondary)', borderBottom: !isCreatingNew ? '2px solid var(--accent-primary)' : 'none', paddingBottom: '0.25rem' }}
                       >
-                        <option value="">-- Select Profile --</option>
-                        {unassignedProfiles.map(p => (
-                          <option key={p.id} value={p.id}>
-                            {p.name} ({p.position}) - {p.team?.name || "No Team"}
-                          </option>
-                        ))}
-                      </select>
+                        Link Existing Profile
+                      </button>
+                      <button 
+                        onClick={() => setIsCreatingNew(true)}
+                        style={{ fontWeight: 600, color: isCreatingNew ? 'var(--accent-primary)' : 'var(--text-secondary)', borderBottom: isCreatingNew ? '2px solid var(--accent-primary)' : 'none', paddingBottom: '0.25rem' }}
+                      >
+                        Create New Profile
+                      </button>
                     </div>
-                    <button
-                      onClick={() => handleAssign(user.id)}
-                      disabled={loading}
-                      className="btn primary"
-                    >
-                      {loading ? "Saving..." : "Save"}
-                    </button>
-                    <button
-                      onClick={() => { setSelectedUser(null); setSelectedProfile(""); }}
-                      disabled={loading}
-                      className="btn secondary"
-                    >
-                      Cancel
-                    </button>
+
+                    {!isCreatingNew ? (
+                      <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', flexWrap: 'wrap', justifyContent: 'flex-start', width: '100%' }}>
+                        <div style={{ flex: '1 1 auto', minWidth: '200px', maxWidth: '300px' }}>
+                          <label className="text-secondary" style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '0.5rem' }}>Select Unassigned CRM Profile</label>
+                          <select
+                            value={selectedProfile}
+                            onChange={(e) => setSelectedProfile(e.target.value)}
+                            style={{ width: '100%', padding: '0.65rem 1rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-subtle)', background: 'var(--bg-main)', color: 'var(--text-primary)', outline: 'none' }}
+                          >
+                            <option value="">-- Select Profile --</option>
+                            {unassignedProfiles.map(p => (
+                              <option key={p.id} value={p.id}>
+                                {p.name} ({p.position}) - {p.team?.name || "No Team"}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <button onClick={() => handleAssign(user.id)} disabled={loading} className="btn primary">
+                          {loading ? "Saving..." : "Link Profile"}
+                        </button>
+                        <button onClick={() => { setSelectedUser(null); setSelectedProfile(""); }} disabled={loading} className="btn secondary">
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                          <div>
+                            <label className="text-secondary text-sm font-bold block mb-1">Name</label>
+                            <input className="input" value={newProfileData.name} onChange={e => setNewProfileData({...newProfileData, name: e.target.value})} />
+                          </div>
+                          <div>
+                            <label className="text-secondary text-sm font-bold block mb-1">Email</label>
+                            <input className="input" value={newProfileData.email} onChange={e => setNewProfileData({...newProfileData, email: e.target.value})} />
+                          </div>
+                          <div>
+                            <label className="text-secondary text-sm font-bold block mb-1">Employee ID</label>
+                            <input className="input" value={newProfileData.employeeId} onChange={e => setNewProfileData({...newProfileData, employeeId: e.target.value})} />
+                          </div>
+                        </div>
+                        
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                          <div>
+                            <label className="text-secondary text-sm font-bold block mb-1">Position / Role</label>
+                            <select className="input" value={newProfileData.position} onChange={e => setNewProfileData({...newProfileData, position: e.target.value})}>
+                              {AVAILABLE_ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-secondary text-sm font-bold block mb-1">Team</label>
+                            <select className="input" value={newProfileData.teamId} onChange={e => setNewProfileData({...newProfileData, teamId: e.target.value})}>
+                              <option value="">No Team (Admin / Standalone)</option>
+                              {teams.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-secondary text-sm font-bold block mb-1">Salary Tier</label>
+                            <select className="input" value={newProfileData.salaryTierId} onChange={e => setNewProfileData({...newProfileData, salaryTierId: e.target.value})}>
+                              <option value="">None (Use Base Salary)</option>
+                              {salaryTiers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-secondary text-sm font-bold block mb-1">Base Salary (PKR)</label>
+                            <input 
+                              type="number" 
+                              className="input" 
+                              value={newProfileData.baseSalary} 
+                              disabled={!!newProfileData.salaryTierId} 
+                              onChange={e => setNewProfileData({...newProfileData, baseSalary: parseFloat(e.target.value) || 0})} 
+                            />
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem' }}>
+                          <button onClick={() => handleCreateAndAssign(user.id)} disabled={loading} className="btn primary">
+                            {loading ? "Creating..." : "Create & Assign Profile"}
+                          </button>
+                          <button onClick={() => { setSelectedUser(null); setIsCreatingNew(false); }} disabled={loading} className="btn secondary">
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
