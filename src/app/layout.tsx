@@ -8,6 +8,8 @@ export const metadata: Metadata = {
   description: "Enterprise Workforce Management System",
 };
 
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({
   children,
 }: {
