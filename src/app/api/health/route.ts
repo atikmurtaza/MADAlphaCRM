@@ -6,6 +6,9 @@ export async function GET() {
   const results: any = {
     env_DATABASE_URL: process.env.DATABASE_URL ? "SET" : "MISSING",
     env_DIRECT_URL: process.env.DIRECT_URL ? "SET" : "MISSING",
+    env_POSTGRES_PRISMA_URL: process.env.POSTGRES_PRISMA_URL ? "SET" : "MISSING",
+    env_POSTGRES_URL_NON_POOLING: process.env.POSTGRES_URL_NON_POOLING ? "SET" : "MISSING",
+    env_POSTGRES_URL: process.env.POSTGRES_URL ? "SET" : "MISSING",
     env_NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ? "SET" : "MISSING",
     env_NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "SET" : "MISSING",
   };
