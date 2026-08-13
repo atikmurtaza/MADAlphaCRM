@@ -5,10 +5,11 @@ import path from 'path';
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets.readonly'];
 
 export async function getAuthClient() {
-  const credentialsPath = path.join(process.cwd(), 'src/lib/google-credentials.json');
-  
   const auth = new google.auth.GoogleAuth({
-    keyFile: credentialsPath,
+    credentials: {
+      client_email: process.env.GOOGLE_CLIENT_EMAIL,
+      private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+    },
     scopes: SCOPES,
   });
 
