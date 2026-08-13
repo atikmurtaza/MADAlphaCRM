@@ -77,7 +77,7 @@ async function backfillClearedAt() {
              }
            }
            
-           if (clearedAt) {
+           if (clearedAt && clearedAt >= new Date('2026-01-01')) {
              const sales = await prisma.sale.findMany({
                where: {
                  status: status,
